@@ -111,7 +111,6 @@ def ask_clarification_node(state: AssistantState) -> dict:
     }
 
 
-
 # outil : dessia
 def dessia_api_node(state: AssistantState) -> dict:
     user_message = get_last_user_message(state)
@@ -165,6 +164,7 @@ def build_graph():
         {
             "assistant_general": "assistant_general",
             "dessia_api": "dessia_api",
+            "ask_clarification": "ask_clarification", 
         },
     )
 
