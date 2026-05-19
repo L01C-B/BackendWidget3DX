@@ -1,0 +1,178 @@
+import json
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langgraph.graph import StateGraph, START, END
+
+from src.llm import build_llm
+from src.prompts import SYSTEM_PROMPT, DESSIA_FORMAT_PROMPT, ROUTER_PROMPT, DESSIA_KEYWORDS
+from src.state import AssistantState
+from src.tools.dessia_client import run_dessia_analysis
+
+
+
+llm = build_llm()
+
+
+# récupération message utilisateur
+def get_last_user_message(state: AssistantState) -> str:
+    for message in reversed(state["messages"]):
+        if isinstance(message, HumanMessage):
+            content = message.content
+
+            if isinstance(content, str):
+                return content
+
+            if isinstance(content, list):
+                return " ".join(str(item) for item in content)
+
+            return str(content)
+
+    return ""
+
+
+#  choix route selon mots clés
+# def router_node(state: AssistantState) -> dict:
+#     user_message = get_last_user_message(state)
+#     normalized_message = user_message.lower()
+
+#     should_use_dessia = any(
+#         keyword in normalized_message
+#         for keyword in DESSIA_KEYWORDS
+#     )
+
+#     if should_use_dessia:
+#         return {
+#             "route": "dessia_api"
+#         }
+
+#     return {
+#         "route": "assistant_general"
+#     }
+
+
+# choix route par le LLM
+def router_node(state: AssistantState) -> dict:
+    user_message = get_last_user_message(state)
+
+    messages = [
+        SystemMessage(content=ROUTER_PROMPT),
+        HumanMessage(content=user_message),
+    ]
+
+    response = llm.invoke(messages)
+
+    try:
+        decision = json.loads(response.content)
+    except Exception:
+        return {
+            "route": "assistant_general",
+            "route_reason": "Le routeur LLM n'a pas retourné un JSON valide.",
+        }
+
+    return {
+        "route": decision.get("route", "assistant_general"),
+        "route_reason": decision.get("reason", ""),
+        "dessia_tool_name": decision.get("tool_name"),
+        "dessia_arguments": decision.get("arguments", {}),
+        "missing_inputs": decision.get("missing_inputs", []),
+    }
+
+
+
+# choix de la prochaine étape
+def choose_next_node(state: AssistantState) -> str:
+    return state.get("route", "assistant_general")
+
+
+# l'assistant chatbot
+def assistant_general_node(state: AssistantState) -> dict:
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        *state["messages"],
+    ]
+
+    response = llm.invoke(messages)
+
+    return {
+        "messages": [response]
+    }
+
+
+# en cas de manque d'informations
+def ask_clarification_node(state: AssistantState) -> dict:
+    missing_inputs = state.get("missing_inputs", [])
+
+    content = (
+        "Il me manque certaines informations pour lancer l'analyse Dessia :\n"
+        + "\n".join(f"- {item}" for item in missing_inputs)
+    )
+
+    return {
+        "messages": [AIMessage(content=content)]
+    }
+
+
+
+# outil : dessia
+def dessia_api_node(state: AssistantState) -> dict:
+    user_message = get_last_user_message(state)
+
+    tool_name = state.get("dessia_tool_name")
+    arguments = state.get("dessia_arguments", {})
+
+    dessia_result = run_dessia_analysis(tool_name, arguments)
+
+    messages = [
+        SystemMessage(content=DESSIA_FORMAT_PROMPT),
+        HumanMessage(
+            content=(
+                "Voici la demande utilisateur :\n"
+                f"{user_message}\n\n"
+                "Voici l'outil Dessia utilisé :\n"
+                f"{tool_name}\n\n"
+                "Voici le résultat retourné par le service Dessia :\n"
+                f"{dessia_result}"
+            )
+        ),
+    ]
+
+    response = llm.invoke(messages)
+
+    return {
+        "messages": [response]
+    }
+
+
+###################################################################################
+
+# assemblage du graphe
+def build_graph():
+    builder = StateGraph(AssistantState)
+
+    ###
+
+    builder.add_node("router", router_node)
+    builder.add_node("assistant_general", assistant_general_node)   
+    builder.add_node("ask_clarification", ask_clarification_node)
+    builder.add_node("dessia_api", dessia_api_node)
+
+    ###
+
+    builder.add_edge(START, "router")
+
+    builder.add_conditional_edges(
+        "router",
+        choose_next_node,
+        {
+            "assistant_general": "assistant_general",
+            "dessia_api": "dessia_api",
+        },
+    )
+
+    builder.add_edge("assistant_general", END)
+    builder.add_edge("ask_clarification", END)
+    builder.add_edge("dessia_api", END)
+
+    return builder.compile()
+
+
+graph = build_graph()

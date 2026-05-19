@@ -1,0 +1,15 @@
+pydantic
+python-dotenv
+typing-extensions
+
+langgraph
+langchain-core
+langchain-mistralai
+langchain-openai
+langgraph-cli[inmem]
+
+fastapi
+uvicorn
+requests
+
+

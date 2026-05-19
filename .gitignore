@@ -1,0 +1,7 @@
+.env
+.venv-agent/
+__pycache__/
+.langgraph_api/
+
+*.pyc
+*.pckl
