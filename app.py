@@ -26,6 +26,9 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
 
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "3DX Copilot Agent API"}
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
