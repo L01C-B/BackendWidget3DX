@@ -42,13 +42,17 @@ def router_node(state: AssistantState) -> dict:
     logger.info("[router] raw_llm_response=%s", response.content)
 
     try:
-        decision = json.loads(response.content)
+        decision = json.loads(response.content.replace("\\_", "_"))
     except Exception:
-        logger.exception("[router] JSON parsing error")
+        logger.exception("[router] JSON parsing error")    
         return {
-            "route": "assistant_general",
+            "route": "ask_clarification",
             "route_reason": "Le routeur LLM n'a pas retourné un JSON valide.",
+            "missing_inputs": [
+                "La requête n'a pas pu être interprétée correctement. Merci de reformuler ou de répéter les paramètres du workflow."
+            ]
         }
+
 
     logger.info("[router] decision=%s", json.dumps(decision, ensure_ascii=False))
 
