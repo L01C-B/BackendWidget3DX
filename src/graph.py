@@ -1,3 +1,4 @@
+import logging
 import json
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
@@ -7,7 +8,7 @@ from src.prompts import SYSTEM_PROMPT, DESSIA_FORMAT_PROMPT, ROUTER_PROMPT, DESS
 from src.state import AssistantState
 from src.tools.dessia_client import run_dessia_analysis
 
-
+logger = logging.getLogger("copilot3dx")
 
 llm = build_llm()
 
@@ -31,8 +32,6 @@ def get_last_user_message(state: AssistantState) -> str:
 
 # choix route par le LLM
 def router_node(state: AssistantState) -> dict:
-    user_message = get_last_user_message(state)
-
     messages = [
         SystemMessage(content=ROUTER_PROMPT),
         *state["messages"][-5:],
@@ -40,13 +39,18 @@ def router_node(state: AssistantState) -> dict:
 
     response = llm.invoke(messages)
 
+    logger.info("[router] raw_llm_response=%s", response.content)
+
     try:
         decision = json.loads(response.content)
     except Exception:
+        logger.exception("[router] JSON parsing error")
         return {
             "route": "assistant_general",
             "route_reason": "Le routeur LLM n'a pas retourné un JSON valide.",
         }
+
+    logger.info("[router] decision=%s", json.dumps(decision, ensure_ascii=False))
 
     return {
         "route": decision.get("route", "assistant_general"),
@@ -99,6 +103,8 @@ def dessia_api_node(state: AssistantState) -> dict:
     arguments = state.get("dessia_arguments", {})
 
     dessia_result = run_dessia_analysis(tool_name, arguments)
+
+    logger.info("[dessia] raw_dessia_result=%s", json.dumps(dessia_result, ensure_ascii=False))
 
     messages = [
         SystemMessage(content=DESSIA_FORMAT_PROMPT),
