@@ -11,5 +11,6 @@ langgraph-cli[inmem]
 fastapi
 uvicorn
 requests
+logging
 
 
