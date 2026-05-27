@@ -29,33 +29,13 @@ def get_last_user_message(state: AssistantState) -> str:
     return ""
 
 
-#  choix route selon mots clés
-# def router_node(state: AssistantState) -> dict:
-#     user_message = get_last_user_message(state)
-#     normalized_message = user_message.lower()
-
-#     should_use_dessia = any(
-#         keyword in normalized_message
-#         for keyword in DESSIA_KEYWORDS
-#     )
-
-#     if should_use_dessia:
-#         return {
-#             "route": "dessia_api"
-#         }
-
-#     return {
-#         "route": "assistant_general"
-#     }
-
-
 # choix route par le LLM
 def router_node(state: AssistantState) -> dict:
     user_message = get_last_user_message(state)
 
     messages = [
         SystemMessage(content=ROUTER_PROMPT),
-        HumanMessage(content=user_message),
+        *state["messages"][-5:],
     ]
 
     response = llm.invoke(messages)

@@ -50,7 +50,7 @@ Arguments attendus :
 Règles :
 - Réponds uniquement en JSON valide.
 - N'invente pas les valeurs numériques manquantes.
-- Si un argument obligatoire manque, route vers ask_clarification.
+- Si un argument obligatoire manque, regarde dans les messages précédents s'il y est et sinon route vers ask_clarification.
 - Si la demande est générale, route vers assistant_general.
 
 Format de sortie obligatoire :
