@@ -17,26 +17,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =========================
-# Logging
-# =========================
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("copilot3dx")
 
-# =========================
-# Mémoire conversationnelle
-# =========================
-
-# Stockage en RAM :
-# clé = thread_id
-# valeur = liste de messages LangChain/ LangGraph
+# Mémoire conversationnelle, stockage en RAM (clé = thread_id) :
 conversation_store: dict[str, list] = {}
 
-# Pour éviter les accès concurrents incohérents
 conversation_store_lock = Lock()
 
-# Nombre maximum de messages conservés dans le contexte envoyé au graphe
 MAX_HISTORY_MESSAGES = 20
 
 
@@ -54,38 +42,6 @@ class ChatResponse(BaseModel):
 def root():
     return {"status": "ok", "service": "3DX Copilot Agent API"}
 
-
-@app.get("/debug/memory")
-def debug_memory():
-    """
-    Endpoint optionnel pour visualiser l'état de la mémoire.
-    Utile pour debug uniquement.
-    """
-    with conversation_store_lock:
-        return {
-            "thread_count": len(conversation_store),
-            "threads": {
-                thread_id: len(messages)
-                for thread_id, messages in conversation_store.items()
-            }
-        }
-
-
-@app.delete("/debug/memory/{thread_id}")
-def clear_thread_memory(thread_id: str):
-    """
-    Endpoint optionnel pour supprimer la mémoire d'un thread.
-    Pratique pour tests.
-    """
-    with conversation_store_lock:
-        existed = thread_id in conversation_store
-        if existed:
-            del conversation_store[thread_id]
-
-    return {
-        "thread_id": thread_id,
-        "deleted": existed
-    }
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -157,3 +113,37 @@ def chat(request: ChatRequest):
             answer="Une erreur est survenue pendant le traitement de votre demande.",
             thread_id=thread_id
         )
+    
+
+
+# @app.get("/debug/memory")
+# def debug_memory():
+#     """
+#     Endpoint optionnel pour visualiser l'état de la mémoire.
+#     Utile pour debug uniquement.
+#     """
+#     with conversation_store_lock:
+#         return {
+#             "thread_count": len(conversation_store),
+#             "threads": {
+#                 thread_id: len(messages)
+#                 for thread_id, messages in conversation_store.items()
+#             }
+#         }
+
+
+# @app.delete("/debug/memory/{thread_id}")
+# def clear_thread_memory(thread_id: str):
+#     """
+#     Endpoint optionnel pour supprimer la mémoire d'un thread.
+#     Pratique pour tests.
+#     """
+#     with conversation_store_lock:
+#         existed = thread_id in conversation_store
+#         if existed:
+#             del conversation_store[thread_id]
+
+#     return {
+#         "thread_id": thread_id,
+#         "deleted": existed
+#     }

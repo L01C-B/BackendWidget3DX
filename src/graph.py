@@ -71,7 +71,7 @@ def choose_next_node(state: AssistantState) -> str:
     return state.get("route", "assistant_general")
 
 
-# l'assistant chatbot
+# l'assistant général
 def assistant_general_node(state: AssistantState) -> dict:
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
