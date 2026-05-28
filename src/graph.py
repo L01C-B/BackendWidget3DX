@@ -90,7 +90,7 @@ def ask_clarification_node(state: AssistantState) -> dict:
     missing_inputs = state.get("missing_inputs", [])
 
     content = (
-        "Il me manque certaines informations pour lancer l'analyse Dessia :\n"
+        "Il me manque certaines informations :\n"
         + "\n".join(f"- {item}" for item in missing_inputs)
     )
 
